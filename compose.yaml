@@ -1,0 +1,14 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-inventario}
+      MYSQL_USER: ${DB_USER:?Configura DB_USER en .env}
+      MYSQL_PASSWORD: ${DB_PASS:?Configura DB_PASS en .env}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:?Configura DB_ROOT_PASS en .env}
+    ports:
+      - "127.0.0.1:${DB_PORT:-3306}:3306"
+    volumes:
+      - inventario_data:/var/lib/mysql
+volumes:
+  inventario_data:
