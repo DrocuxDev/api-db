@@ -30,7 +30,11 @@ const Producto = sequelize.define('Producto', {
     },
     categoria_id: {
         type: DataTypes.INTEGER,
-        allowNull: true
+        allowNull: false
+    },
+    proveedor_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
     }
 }, {
     tableName: 'Productos',

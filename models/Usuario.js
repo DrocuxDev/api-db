@@ -1,4 +1,5 @@
-const { DataTypes } = require('sequelize');
+const { scryptSync, randomBytes } = require('node:crypto');
+const { DataTypes, ValidationError } = require('sequelize');
 const sequelize = require('../config/db');
 
 const Usuario = sequelize.define('Usuario', {
@@ -21,7 +22,12 @@ const Usuario = sequelize.define('Usuario', {
     },
     password: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
+        set(value) {
+            if (typeof value !== 'string' || value.length < 8) throw new ValidationError('La contraseña debe tener al menos 8 caracteres.');
+            const salt = randomBytes(16).toString('hex');
+            this.setDataValue('password', `scrypt:${salt}:${scryptSync(value, salt, 64).toString('hex')}`);
+        }
     },
     rol: {
         type: DataTypes.ENUM('Administrador', 'Almacenero', 'Supervisor'),
@@ -33,6 +39,7 @@ const Usuario = sequelize.define('Usuario', {
     }
 }, {
     tableName: 'Usuarios',
+    defaultScope: { attributes: { exclude: ['password'] } },
     timestamps: true
 });
 
