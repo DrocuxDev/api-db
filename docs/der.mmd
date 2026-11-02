@@ -1,0 +1,43 @@
+erDiagram
+    Categorias ||--o{ Productos : clasifica
+    Proveedores ||--o{ Productos : suministra
+    Productos ||--o{ Movimientos : registra
+    Usuarios |o--o{ Movimientos : responsable
+    Categorias {
+        int id PK
+        string nombre
+        text descripcion
+    }
+    Proveedores {
+        int id PK
+        string razon_social
+        string contacto
+        string telefono
+        string email
+    }
+    Usuarios {
+        int id PK
+        string nombre
+        string email UK
+        string password "hash scrypt"
+        enum rol
+        boolean estado
+    }
+    Productos {
+        int id PK
+        string nombre
+        text descripcion
+        decimal precio
+        int stock
+        int categoria_id FK "NOT NULL"
+        int proveedor_id FK "NOT NULL"
+    }
+    Movimientos {
+        int id PK
+        int producto_id FK "NOT NULL"
+        int usuario_id FK "NULL para Sistema"
+        enum tipo_movimiento
+        int cantidad
+        datetime fecha_hora
+        text observaciones
+    }
