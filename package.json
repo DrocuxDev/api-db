@@ -5,8 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
-    
+    "dev": "nodemon index.js",
+    "test": "node tests/integration.js",
+    "demo": "node scripts/demo.js"
   },
   "keywords": [],
   "type": "commonjs",

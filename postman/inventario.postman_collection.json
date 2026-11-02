@@ -1,0 +1,350 @@
+{
+  "info": {
+    "name": "Laboratorio 9 - Inventario full stack",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Pruebas de demostración. Crea una categoría, un proveedor y un producto con historial. Ejecutar solo en la base local de laboratorio."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:3006"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Salud de MySQL",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('MySQL disponible',()=>pm.expect(pm.response.json().database).to.eql('mysql'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Crear categoría",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/categorias",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Accesorios - prueba Postman\",\n  \"descripcion\": \"Datos de demostración\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('categoria_id',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Crear proveedor",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/proveedores",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"razon_social\": \"Suministros de laboratorio\",\n  \"contacto\": \"Área de ventas\",\n  \"email\": \"demo-proveedor@example.com\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('proveedor_id',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Rechazar producto sin categoría",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/productos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Inválido\",\n  \"precio\": 30,\n  \"proveedor_id\": \"{{proveedor_id}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Crear producto y entrada inicial",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/productos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Teclado USB - prueba Postman\",\n  \"precio\": 89,\n  \"stock\": 6,\n  \"categoria_id\": \"{{categoria_id}}\",\n  \"proveedor_id\": \"{{proveedor_id}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('producto_id',pm.response.json().id);",
+              "pm.test('Stock inicial 6 y categoría visible',()=>{pm.expect(pm.response.json().stock).to.eql(6);pm.expect(pm.response.json().Categoria.nombre).to.include('Postman');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Entrada de 4 unidades",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/movimientos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"producto_id\": \"{{producto_id}}\",\n  \"tipo_movimiento\": \"Entrada\",\n  \"cantidad\": 4,\n  \"observaciones\": \"Reposición verificada desde Postman/Newman.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Stock 10',()=>pm.expect(pm.response.json().nuevoStock).to.eql(10));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Rechazar salida excesiva",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/movimientos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"producto_id\": \"{{producto_id}}\",\n  \"tipo_movimiento\": \"Salida\",\n  \"cantidad\": 999\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Bloquear edición directa de stock",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/productos/{{producto_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"stock\": 999\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Bloquear eliminación de categoría usada",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{base_url}}/api/categorias/{{categoria_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Verificar stock conservado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/productos"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Producto conserva 10 unidades',()=>{const p=pm.response.json().find(p=>String(p.id)===String(pm.collectionVariables.get('producto_id')));pm.expect(p.stock).to.eql(10);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Verificar historial",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/movimientos"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Dos movimientos persistidos',()=>{const rows=pm.response.json().filter(m=>String(m.producto_id)===String(pm.collectionVariables.get('producto_id')));pm.expect(rows.length).to.eql(2);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Dashboard con categorías",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/dashboard/kpis"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Distribución disponible',()=>pm.expect(pm.response.json().stockPorCategoria).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
