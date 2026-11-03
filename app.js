@@ -1,10 +1,33 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { Op, ValidationError, ForeignKeyConstraintError } = require('sequelize');
 const { sequelize, Categoria, Proveedor, Usuario, Producto, Movimiento } = require('./models');
 
 const app = express();
-app.use(cors());
+
+// --- PROTECCIÓN CONTRA ATAQUES COMUNES ---
+
+// 1. HELMET: Protege contra XSS y otras vulnerabilidades de cabecera HTTP
+app.use(helmet());
+
+// 2. CORS: Configuración restrictiva (reemplazar por la URL de tu React cuando esté en producción)
+// Por ahora permitimos localhost:5173 (Vite), lo cual previene peticiones de orígenes no autorizados.
+app.use(cors({
+    origin: 'http://localhost:5173',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// 3. RATE LIMIT: Previene ataques de Fuerza Bruta y DoS limitando las peticiones por IP
+const limitador = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 100, // Máximo 100 peticiones por IP en ese lapso
+    message: 'Demasiadas peticiones desde esta IP, por favor intente más tarde.'
+});
+app.use('/api/', limitador); // Aplica a todas las rutas que comiencen con /api/
+
 app.use(express.json({ limit: '100kb' }));
 
 class HttpError extends Error {
