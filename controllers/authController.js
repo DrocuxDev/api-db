@@ -2,6 +2,7 @@
 const Usuario = require('../models/Usuario');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { obtenerModulos } = require('../config/permisos');
 
 exports.registrar = async (req, res) => {
     try {
@@ -51,7 +52,26 @@ exports.login = async (req, res) => {
         res.json({
             message: 'Inicio de sesión exitoso',
             token,
-            usuario: { id: usuario.id, nombre: usuario.nombre, rol: usuario.rol }
+            usuario: { id: usuario.id, nombre: usuario.nombre, rol: usuario.rol },
+            // Módulos habilitados para su rol (el frontend oculta el resto)
+            modulos: await obtenerModulos(usuario.rol)
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Datos y módulos actuales del usuario de la sesión (se consulta al cargar el panel,
+// así los cambios de rol o permisos se reflejan sin volver a iniciar sesión)
+exports.permisos = async (req, res) => {
+    try {
+        const usuario = await Usuario.findByPk(req.usuario.id);
+        if (!usuario || !usuario.estado) {
+            return res.status(401).json({ error: 'Sesión inválida o usuario inactivo.' });
+        }
+        res.json({
+            usuario: { id: usuario.id, nombre: usuario.nombre, rol: usuario.rol },
+            modulos: await obtenerModulos(usuario.rol)
         });
     } catch (error) {
         res.status(500).json({ error: error.message });

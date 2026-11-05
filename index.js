@@ -6,7 +6,6 @@ const sequelize = require('./config/db');
 require('dotenv').config();
 
 // Importar Modelos para que Sequelize los registre
-const Producto = require('./models/producto');
 const Usuario = require('./models/Usuario');
 require('./models');
 
@@ -14,7 +13,10 @@ const app = express();
 
 // (Conserva los imports y configuraciones previas)
 const authRoutes = require('./routes/authRoutes');
+const rolesRoutes = require('./routes/rolesRoutes');
 const autenticar = require('./middleware/authMiddleware');
+const { permitir } = require('./middleware/permisosMiddleware');
+const { ADMIN, asegurarRolesBase } = require('./config/permisos');
 
 // --- MIDDLEWARES ---
 // --- PROTECCIÓN CONTRA ATAQUES COMUNES ---
@@ -33,7 +35,7 @@ app.use(cors({
 // 3. RATE LIMIT: Previene ataques de Fuerza Bruta y DoS limitando las peticiones por IP
 const limitador = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 100, // Máximo 100 peticiones por IP en ese lapso
+    max: Number(process.env.RATE_LIMIT_MAX) || 1000, // Máximo de peticiones por IP en ese lapso (React en desarrollo duplica peticiones)
     message: 'Demasiadas peticiones desde esta IP, por favor intente más tarde.'
 });
 app.use('/api/', limitador); // Aplica a todas las rutas que comiencen con /api/
@@ -55,66 +57,44 @@ app.get('/', (req, res) => {
 const RUTAS_PUBLICAS = new Set(['/', '/api/health']);
 app.use((req, res, next) => (RUTAS_PUBLICAS.has(req.path) ? next() : autenticar()(req, res, next)));
 
-// Gestión de usuarios (crear, editar, eliminar): solo Administrador.
-// La lectura queda abierta a usuarios autenticados porque el Kardex lista responsables.
-app.use(['/usuarios', '/api/usuarios'], (req, res, next) => (req.method === 'GET' ? next() : autenticar(['Administrador'])(req, res, next)));
+// --- CONTROL DE ACCESO POR MÓDULOS ---
+// Cada rol tiene módulos habilitados (se configuran en Usuarios → Roles y módulos).
+// "lectura" permite solo GET a quien tenga otro módulo que necesita esos datos.
+app.use(['/dashboard', '/api/dashboard'], permitir('dashboard'));
+app.use(['/productos', '/api/productos'], permitir('productos', { lectura: ['kardex'] }));
+app.use(['/categorias', '/api/categorias'], permitir('categorias', { lectura: ['productos'] }));
+app.use(['/proveedores', '/api/proveedores'], permitir('proveedores', { lectura: ['productos'] }));
+app.use(['/movimientos', '/api/movimientos'], permitir('kardex'));
+
+// Gestión de usuarios: módulo "usuarios". La lectura también se permite con el módulo
+// "kardex" porque el Kardex lista responsables.
+app.use(['/usuarios', '/api/usuarios'], permitir('usuarios', { lectura: ['kardex'] }), async (req, res, next) => {
+    // Solo un Administrador puede crear, modificar o eliminar Administradores
+    if (req.method === 'GET' || req.sesion.rol === ADMIN) return next();
+    if (req.body?.rol === ADMIN) {
+        return res.status(403).json({ error: 'Solo un Administrador puede asignar el rol Administrador.' });
+    }
+    const id = Number(req.path.split('/')[1]);
+    if (id && (await Usuario.findByPk(id))?.rol === ADMIN) {
+        return res.status(403).json({ error: 'Solo un Administrador puede modificar a otro Administrador.' });
+    }
+    next();
+});
+
+// Tipos de usuario (roles) y sus módulos habilitados
+app.use(['/roles', '/api/roles'], rolesRoutes);
 
 // --- SINCRONIZACIÓN Y ARRANQUE ---
 const PORT = process.env.PORT || 3006;
 
-// --- RUTAS CRUD PARA PRODUCTOS ---
-// --- EJEMPLO DE RUTA PROTEGIDA ---
-// Solo administradores o almaceneros pueden ver la lista
-
-// 1. POST: Crear un nuevo producto (Hace funcionar el botón Guardar)
-app.post(['/productos', '/api/productos'], autenticar(['Administrador', 'Almacenero']), async (req, res) => {
-    try {
-        const nuevoProducto = await Producto.create(req.body);
-        res.status(201).json(nuevoProducto);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 2. GET: Obtener todos los productos (Hace funcionar la Lista de Productos)
-app.get(['/productos', '/api/productos'], autenticar(['Administrador', 'Almacenero']), async (req, res) => {
-    try {
-        const productos = await Producto.findAll();
-        res.json(productos);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 3. PUT: Actualizar un producto existente (Hace funcionar el botón Editar)
-app.put(['/productos/:id', '/api/productos/:id'], autenticar(['Administrador', 'Almacenero']), async (req, res) => {
-    try {
-        await Producto.update(req.body, {
-            where: { id: req.params.id }
-        });
-        res.json({ message: 'Producto actualizado' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 4. DELETE: Eliminar un producto (Hace funcionar el botón Eliminar)
-app.delete(['/productos/:id', '/api/productos/:id'], autenticar(['Administrador', 'Almacenero']), async (req, res) => {
-    try {
-        await Producto.destroy({
-            where: { id: req.params.id }
-        });
-        res.json({ message: 'Producto eliminado' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Rutas previas adicionales del sistema (Kardex, Categorías, Proveedores, Dashboard)
+// Rutas del sistema (Productos, Kardex, Categorías, Proveedores, Usuarios, Dashboard).
+// La lógica CRUD de productos (incluye Categoría/Proveedor y registra la entrada
+// inicial en el Kardex dentro de una transacción) está en app.js.
 app.use(require('./app'));
 
 // force: false evita que se borren los datos cada vez que se reinicia el servidor
 sequelize.sync({ force: false })
+    .then(() => asegurarRolesBase())
     .then(() => {
         console.log('Base de datos conectada y sincronizada.');
         app.listen(PORT, () => {

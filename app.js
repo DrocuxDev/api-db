@@ -23,7 +23,7 @@ app.use(cors({
 // 3. RATE LIMIT: Previene ataques de Fuerza Bruta y DoS limitando las peticiones por IP
 const limitador = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 100, // Máximo 100 peticiones por IP en ese lapso
+    max: Number(process.env.RATE_LIMIT_MAX) || 1000, // Máximo de peticiones por IP en ese lapso (React en desarrollo duplica peticiones)
     message: 'Demasiadas peticiones desde esta IP, por favor intente más tarde.'
 });
 app.use('/api/', limitador); // Aplica a todas las rutas que comiencen con /api/

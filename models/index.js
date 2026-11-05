@@ -4,6 +4,7 @@ const Proveedor = require('./Proveedor');
 const Usuario = require('./Usuario');
 const Producto = require('./producto');
 const Movimiento = require('./Movimiento');
+const Rol = require('./Rol');
 
 // Relaciones en Sequelize
 Categoria.hasMany(Producto, { foreignKey: 'categoria_id', onDelete: 'RESTRICT' });
@@ -24,5 +25,6 @@ module.exports = {
     Proveedor,
     Usuario,
     Producto,
-    Movimiento
+    Movimiento,
+    Rol
 };
