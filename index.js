@@ -50,6 +50,15 @@ app.get('/', (req, res) => {
     res.send('¡API Backend funcionando exitosamente!');
 });
 
+// --- PROTECCIÓN GLOBAL CON JWT ---
+// A partir de aquí todas las rutas exigen un token válido, salvo las públicas.
+const RUTAS_PUBLICAS = new Set(['/', '/api/health']);
+app.use((req, res, next) => (RUTAS_PUBLICAS.has(req.path) ? next() : autenticar()(req, res, next)));
+
+// Gestión de usuarios (crear, editar, eliminar): solo Administrador.
+// La lectura queda abierta a usuarios autenticados porque el Kardex lista responsables.
+app.use(['/usuarios', '/api/usuarios'], (req, res, next) => (req.method === 'GET' ? next() : autenticar(['Administrador'])(req, res, next)));
+
 // --- SINCRONIZACIÓN Y ARRANQUE ---
 const PORT = process.env.PORT || 3006;
 
@@ -58,7 +67,7 @@ const PORT = process.env.PORT || 3006;
 // Solo administradores o almaceneros pueden ver la lista
 
 // 1. POST: Crear un nuevo producto (Hace funcionar el botón Guardar)
-app.post(['/productos', '/api/productos'], async (req, res) => {
+app.post(['/productos', '/api/productos'], autenticar(['Administrador', 'Almacenero']), async (req, res) => {
     try {
         const nuevoProducto = await Producto.create(req.body);
         res.status(201).json(nuevoProducto);
