@@ -28,6 +28,8 @@ const Usuario = sequelize.define('Usuario', {
     }
 }, {
     tableName: 'usuarios',
+    // Nunca devolver el hash de la contraseña en las respuestas de la API
+    defaultScope: { attributes: { exclude: ['password'] } },
     hooks: {
         // Antes de guardar o actualizar en la base de datos, ciframos la contraseña (Prevención contra brechas)
         beforeCreate: async (usuario) => {
